@@ -1,3 +1,4 @@
+### This is a modifed script from https://github.com/lindsawi/HybSeq-SNP-Extraction/blob/master/variantcall.sh
 #!/bin/bash
 set -eo pipefail  # Stop on errors and fail on pipeline errors
 
