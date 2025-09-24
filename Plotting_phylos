@@ -1,0 +1,203 @@
+##################################################
+library(ggtree)
+library(ggrepel)
+library(ape)
+library(phangorn)   # for Descendants()
+
+
+##read in ASTRAL tree and drop tips
+astral_amo<- read.tree("rerooted_AS.tre")
+to_drop <- c("A_palmeri_1_S48","A_t_tabernaemontana_3_S1","Haplophyton_cimicidum","Alstonia_scholaris" ,"Alyxia_buxifolia","Plumeria_obtusa","Gongronema_filipes","Ceropegia_sandersonii","Apocynum_S12","Asclepias_S31","Stephanostema_stenocarpum","Adenium_obesum")
+
+
+# Nodes for shaded clades (no labels)
+shaded_nodes <- c(90, 100, 109)
+
+# Nodes for named clades and their labels
+named_nodes <- c(81,85,89,112,128,136)
+clade_names <- c("Amsonia","Sphinctosiphon","Amsonia",
+                 "Sphinctosiphon","Sphinctosiphon","Articularia")
+
+
+# Base tree
+p <- ggtree(new_amoastral, size = 1.0, layout = "rectangular") +
+  geom_tiplab(size = 8) +
+  theme_tree()
+
+# Shade clades (push boxes out with extend)
+for(node in shaded_nodes){
+  p <- p + geom_hilight(node=node, fill="grey", alpha=0.5, extend=2)
+}
+
+# ---- Build vertical lines + clade names ----
+line_df <- data.frame()
+label_df <- data.frame()
+
+offset <- 16.0  # fixed offset for all clade bars/names
+
+for(i in seq_along(named_nodes)){
+  node <- named_nodes[i]
+  
+  # descendant tips for vertical span
+  tip_nodes <- unlist(Descendants(new_amoastral, node, type="tips"))
+  tip_ys <- p$data$y[p$data$node %in% tip_nodes]
+  node_x <- p$data$x[p$data$node == node]
+  
+  # vertical line (all aligned at node_x + offset)
+  line_df <- rbind(line_df, data.frame(
+    x = node_x + offset,
+    xend = node_x + offset,
+    y = min(tip_ys),
+    yend = max(tip_ys),
+    label = clade_names[i]
+  ))
+  
+  # label position (aligned just right of the bar)
+  label_df <- rbind(label_df, data.frame(
+    x = node_x + offset + 0.5,
+    y = mean(tip_ys),
+    label = clade_names[i]
+  ))
+}
+
+# Add vertical lines
+p <- p + geom_segment(data=line_df,
+                      aes(x=x, xend=xend, y=y, yend=yend),
+                      inherit.aes=FALSE, color="black")
+
+# Add clade names (aligned to right of bars)
+p <- p + geom_text(data=label_df,
+                   aes(x=x, y=y, label=label),
+                   inherit.aes=FALSE, size=9, hjust=0)
+
+# Node supports < 0.9, rounded, with repel
+p <- p + geom_label_repel(
+  aes(label = ifelse(!isTip & as.numeric(label) < 0.9,
+                     sprintf("%.2f", as.numeric(label)), "")),
+  nudge_x = .45,
+  box.padding = 0.4,
+  point.padding = 0.4,
+  segment.color = "black",
+  color = "black",
+  size = 3,
+  min.segment.length = 0
+)
+
+?geom_label_repel()
+# Expand margin
+max_x <- max(p$data$x, na.rm = TRUE)
+p <- p + xlim(NA, max_x + offset + 6)
+
+p
+
+
+ggsave("Amo_astral_repel_labels27.pdf", plot = p, width = 14, height = 18, units = "in")
+######
+##### Concatenated phylogeny 
+
+library(ggtree)
+library(ape)
+library(phangorn)   # for Descendants()
+library(ggrepel)
+
+# -----------------------------
+# 1. Load and prepare tree
+# -----------------------------
+con_amoastral <- read.tree("amoconcat_rootclean.tre")
+con_amoastral<-drop.tip(con_amo2,to_drop)
+# Ladderize tree for neat branch order
+#con_amoastral <- ladderize(con_amoastral, right = TRUE)
+
+# -----------------------------
+# 2. Define clades
+# -----------------------------
+# Nodes for shaded clades (no labels)
+shaded_nodes <- c(127, 136, 142)
+
+# Nodes for named clades
+named_nodes <- c(80, 92, 118, 122, 126)
+clade_names <- c("Articularia", "Sphinctosiphon", "Sphinctosiphon", "Amsonia", "Amsonia")
+
+# -----------------------------
+# 3. Base tree
+# -----------------------------
+p <- ggtree(con_amoastral, size = 1.0, layout = "rectangular") +
+  geom_tiplab(size = 8) +  # smaller tip labels
+  theme_tree() +
+  scale_y_continuous(expand = c(0.05, 0.05))  # add vertical breathing room
+
+# -----------------------------
+# 4. Shade clades (shorter boxes)
+# -----------------------------
+for(node in shaded_nodes){
+  p <- p + geom_hilight(node=node, fill="grey", alpha=0.5, extend=0.0)
+}
+
+# -----------------------------
+# 5. Build vertical bars + clade labels (closer to phylogeny)
+# -----------------------------
+offset <- 0.005  # smaller offset than before
+line_df <- data.frame()
+label_df <- data.frame()
+
+for(i in seq_along(named_nodes)){
+  node <- named_nodes[i]
+  tip_nodes <- unlist(phangorn::Descendants(con_amoastral, node, type="tips"))
+  tip_ys <- p$data$y[p$data$node %in% tip_nodes]
+  if(length(tip_ys) == 0) next
+  
+  node_x <- p$data$x[p$data$node == node]
+  
+  line_df <- rbind(line_df, data.frame(
+    x = node_x + offset +  0.050,
+    xend = node_x + offset +  0.050,
+    y = min(tip_ys),
+    yend = max(tip_ys),
+    label = clade_names[i]
+  ))
+  
+  label_df <- rbind(label_df, data.frame(
+    x = node_x + offset + 0.050,
+    y = mean(tip_ys),
+    label = clade_names[i]
+  ))
+}
+
+p <- p + geom_segment(data=line_df,
+                      aes(x=x, xend=xend, y=y, yend=yend),
+                      inherit.aes=FALSE,
+                      color="black") +
+  geom_text(data=label_df,
+            aes(x=x, y=y, label=label),
+            inherit.aes=FALSE,
+            size=9,
+            hjust=0)
+
+# -----------------------------
+# 6. Node supports < 0.9, no decimals, skip 1.00
+# -----------------------------
+p <- p + geom_label_repel(
+  aes(label = ifelse(!isTip & as.numeric(label) < 90 & as.numeric(label) != 1,
+                     round(as.numeric(label)), "")),
+  nudge_x = 0,
+  box.padding = 0.4,
+  point.padding = 0.4,
+  segment.color = "black",
+  color = "black",
+  size = 3,
+  min.segment.length = 0
+)
+
+# -----------------------------
+# 8. Plot
+# -----------------------------
+max_x <- max(p$data$x, na.rm = TRUE)
+p <- p + xlim(NA, max_x + offset + .06)
+
+p
+# -----------------------------
+# 9. Save as PDF
+# -----------------------------
+ggsave("Concon35_aligned.pdf", plot = p, width = 14, height = 18, units = "in")
+
+
